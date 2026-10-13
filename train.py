@@ -66,7 +66,11 @@ def main():
 
     report = {'config': cfg, 'args': vars(args)}
     if not args.no_mining:
-        model, report['mining'] = mining(model, cfg, args.smart, args.dumb, val, args, log)
+        model, report['mining'] = mining(
+            model, cfg, args.smart, args.dumb, val, eval_n=args.eval_n, rounds=args.rounds,
+            patience=args.mining_patience, hard_frac=args.hard_frac, ft_lr=args.ft_lr, ft_epochs=args.ft_epochs,
+            ft_patience=args.ft_patience, batch_size=args.batch_size, final_n=args.final_n, workers=args.workers,
+            seed=args.seed, log=log)
 
     log(f'final evaluation on {args.test_n} + {args.test_n} fresh test maps')
     test = MapSet.from_generators(args.smart, args.dumb, SEEDS['test'], args.test_n, args.workers)
@@ -76,7 +80,7 @@ def main():
                       'fp_rate': fp / args.test_n, 'fn_rate': fn / args.test_n}
     log(f'test accuracy {acc:.4f} | FP rate {fp / args.test_n:.4f} | FN rate {fn / args.test_n:.4f}')
 
-    n_params = sum(p.numel() for name, p in model.state_dict().items() if name != 'adj')
+    n_params = sum(p.numel() for p in model.parameters())
     info = (f'GCN {args.depth} graph layer(s) x {args.width} channels, dense {args.hidden}, {n_params} parameters; '
             f'smart = {os.path.basename(args.smart)}, dumb = {os.path.basename(args.dumb)}; '
             f'test accuracy {acc:.4f} (FP rate {fp / args.test_n:.4f}, FN rate {fn / args.test_n:.4f})')

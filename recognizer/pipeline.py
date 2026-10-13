@@ -11,23 +11,24 @@ import torch.nn.functional as F
 
 from recognizer.genload import generate
 from recognizer.model_template import features, hex_graph, parse_map
-from recognizer.models import GCN
+from recognizer.gcn import GCN
 
 # disjoint seed ranges for the different map sets
 SEEDS = {'train': 0, 'val': 10_000_000, 'test': 20_000_000, 'final': 900_000_000}
 MINING_SEED_BASE, MINING_STRIDE = 100_000_000, 1_000_000
 
+
 class MapSet:
     """Maps with labels (1 = smart, 0 = dumb), one-hot node features and a hex graph per map shape."""
-    graphs = {}  # shape signature -> adjacency (torch)
 
-    def __init__(self, texts=(), labels=()):
+    def __init__(self, texts=(), labels=(), graphs=None):
         self.texts, self.y, self.sig, self.x = list(texts), np.array(labels, dtype=np.float32), [], []
+        self.graphs = {} if graphs is None else graphs  # shape signature -> adjacency matrix (torch)
         for t in self.texts:
             rows, indented = parse_map(t)
             sig = (tuple(len(r) for r in rows), tuple(indented))
-            if sig not in MapSet.graphs:
-                MapSet.graphs[sig] = torch.from_numpy(hex_graph(rows, indented)[1])
+            if sig not in self.graphs:
+                self.graphs[sig] = torch.from_numpy(hex_graph(rows, indented)[1])
             cells = [(r, c) for r in range(len(rows)) for c in range(len(rows[r]))]
             self.sig.append(sig)
             self.x.append(features(rows, cells))
@@ -39,7 +40,7 @@ class MapSet:
         return cls(texts, [1] * n + [0] * n)
 
     def subset(self, idx):
-        s = MapSet()
+        s = MapSet(graphs=self.graphs)
         s.texts = [self.texts[i] for i in idx]
         s.y = self.y[idx]
         s.sig = [self.sig[i] for i in idx]
@@ -62,12 +63,11 @@ class MapSet:
             chunks = [chunks[k] for k in np.random.permutation(len(chunks))]
         for sig, idx in chunks:
             x = torch.from_numpy(np.stack([self.x[i] for i in idx]))
-            yield idx, x, MapSet.graphs[sig], torch.from_numpy(self.y[idx])
+            yield idx, x, self.graphs[sig], torch.from_numpy(self.y[idx])
 
 
 def new_model(width, depth, hidden):
-    # n_nodes/edges only initialise the stored graph; the graph of each batch is passed to forward()
-    return GCN(1, np.zeros((0, 2), dtype=np.int64), width=width, depth=depth, hidden=hidden, head='pool')
+    return GCN(width=width, depth=depth, hidden=hidden)
 
 
 @torch.no_grad()
@@ -131,25 +131,32 @@ def mcnemar_p(wrong_a, wrong_b, n):
     return min(1.0, 2 * sum(math.comb(k1 + k2, i) for i in range(min(k1, k2) + 1)) / 2 ** (k1 + k2))
 
 
-def mining(model, cfg, smart, dumb, val, args, log=print):
-    """Hard example mining with fresh maps from the generators (see README)."""
-    rng = np.random.default_rng(args.seed)
+def mining(model, cfg, smart, dumb, val, *, eval_n=5000, rounds=10, patience=2, hard_frac=0.05,
+           ft_lr=3e-4, ft_epochs=50, ft_patience=8, batch_size=64, final_n=10000, workers=1, seed=0, log=print):
+    """Hard example mining with fresh maps from the generators (see README).
+
+    model: trained model, cfg: its architecture (arguments of new_model), smart/dumb: generator files,
+    val: validation maps for early stopping, eval_n: maps per generator in each fresh evaluation set,
+    patience: failed attempts in a row before stopping, hard_frac: share of wrongly judged maps in further
+    training, ft_*: further training, final_n: maps per generator to measure the overall effect (0 = skip).
+    Returns (best model, report dict)."""
+    rng = np.random.default_rng(seed)
     start = new_model(**cfg)
     start.load_state_dict(model.state_dict())
     best = model
-    cur = MapSet.from_generators(smart, dumb, MINING_SEED_BASE, args.eval_n, args.workers)
+    cur = MapSet.from_generators(smart, dumb, MINING_SEED_BASE, eval_n, workers)
     cur_wrong, fp, fn = errors(best, cur)
     log(f'mining: evaluation set 0: {len(cur_wrong)} errors (FP {fp}, FN {fn}) of {len(cur)}')
     failed, accepted = 0, []
-    for k in range(1, args.rounds + 1):
+    for k in range(1, rounds + 1):
         if len(cur_wrong) == 0:
             break
         cand = new_model(**cfg)
         cand.load_state_dict(best.state_dict())
-        ft = fine_tune_set(cur, cur_wrong, args.hard_frac, rng)
+        ft = fine_tune_set(cur, cur_wrong, hard_frac, rng)
         log(f'round {k}: further training on {len(cur_wrong)} wrongly judged + {len(ft) - len(cur_wrong)} other fresh maps')
-        cand = train(cand, ft, val, args.ft_lr, args.ft_epochs, args.ft_patience, args.batch_size, log)
-        nxt = MapSet.from_generators(smart, dumb, MINING_SEED_BASE + k * MINING_STRIDE, args.eval_n, args.workers)
+        cand = train(cand, ft, val, ft_lr, ft_epochs, ft_patience, batch_size, log)
+        nxt = MapSet.from_generators(smart, dumb, MINING_SEED_BASE + k * MINING_STRIDE, eval_n, workers)
         w_best, fp_b, fn_b = errors(best, nxt)
         w_cand, fp_c, fn_c = errors(cand, nxt)
         log(f'  new evaluation set: saved model {len(w_best)} errors (FP {fp_b}, FN {fn_b}) | '
@@ -161,13 +168,13 @@ def mining(model, cfg, smart, dumb, val, args, log=print):
         else:
             failed += 1
             cur_wrong = w_best
-            log(f'  -> saved model kept ({failed}/{args.mining_patience} failed attempts)')
-            if failed >= args.mining_patience:
+            log(f'  -> saved model kept ({failed}/{patience} failed attempts)')
+            if failed >= patience:
                 break
         cur = nxt
     result = {'accepted_rounds': accepted}
-    if accepted and args.final_n:
-        final = MapSet.from_generators(smart, dumb, SEEDS['final'], args.final_n, args.workers)
+    if accepted and final_n:
+        final = MapSet.from_generators(smart, dumb, SEEDS['final'], final_n, workers)
         w_s, _, _ = errors(start, final)
         w_e, _, _ = errors(best, final)
         result.update(final_n=len(final), start_errors=len(w_s), end_errors=len(w_e),

@@ -67,7 +67,7 @@ more, not a probability of anything.
 **Smart generator** (`tmgen/smart.py`): the original code of branch `3`. <!--
 unchanged except for removed
 display/plotting code. `tmgen/fast.py` is a 5× faster drop-in version (cached river access, tracked colour counts);
-for the same random seed it produces exactly the same maps (`python -m tmgen.fast_check`).-->
+for the same random seed it produces exactly the same maps.-->
 
 **Dumb generator** (`tmgen/dumb.py`) a reduced version of the smart generator that only observes that 1) two hexes of the same colour are never adjacent and
 2) the remaining colours are weighted with the smart generator's factor `contingent^0.5`.
@@ -94,7 +94,7 @@ generator are generated and learned (batch size 64, Adam with learning rate 0.00
 30 epochs, training stops and the network is reset to its best epoch (**early stopping**). The validation maps are
 used only for this purpose.
 
-Then **hard example mining** is applied (`recognizer/mining.py`):
+Then **hard example mining** is applied (`recognizer/pipeline.py`, run by `train.py`):
 
 1. A fresh evaluation set of 5,000 + 5,000 maps is generated and the model is evaluated on it.
 2. All evaluation maps that were judged wrongly (FP or FN) go into a new training set. It is filled up with correctly
@@ -198,19 +198,19 @@ All numbers are validation accuracy on the Fjords layout (mean over 3 seeds unle
 ```
 map_is_smart.py   check a map with the trained model (numpy only)
 train.py          train your own model from two generator files -> model.py
-generate_maps.py  write maps of a generator as text files
-generators/       smart_generator.py, dumb_generator.py (generator files for train.py / generate_maps.py)
-tmgen/            generators: smart.py (original), dumb.py, fast.py (fast drop-in), generate.py (datasets)
-recognizer/       model_template.py (the code of map_is_smart.py / model.py), export.py, pipeline.py, genload.py,
-                  models.py, graph.py, encode.py; research scripts: train.py, mining.py, baseline.py, matched.py,
-                  errors.py, probe.py, real_maps.py, final_eval.py, summarize.py
+generators/       smart_generator.py, dumb_generator.py (generator files for train.py)
+tmgen/            generators: smart.py (original), dumb.py, fast.py (fast drop-in), layouts.py (river layouts)
+recognizer/       model_template.py (the code of map_is_smart.py / model.py), export.py (writes model.py),
+                  pipeline.py (training and hard example mining), genload.py (loads generator files), gcn.py (GCN)
 ```
 
 ## Usage
 
+Requires Python 3.8 or newer.
+
 ### Check a map
 
-Needs only Python 3 and numpy.
+Needs only numpy.
 
 ```bash
 python map_is_smart.py map.txt              # prints a score between 0 and 1, e.g. 0.999

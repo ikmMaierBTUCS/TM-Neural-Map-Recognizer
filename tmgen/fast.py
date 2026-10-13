@@ -1,7 +1,7 @@
 """Faster drop-in versions of the smart and dumb generator.
 
 Only helper methods are replaced; create_map() and all scoring formulas stay the original code,
-so for the same random seed the maps are identical (checked by tmgen.fast_check).
+so for the same random seed the maps are identical to those of tmgen/smart.py and tmgen/dumb.py.
 
 What is cached / tracked:
   - river_access(hex): depends only on the river layout -> computed once per layout

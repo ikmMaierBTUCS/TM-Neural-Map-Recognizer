@@ -1,9 +1,9 @@
-# Smart generator: verbatim copy of "TM MapGen(1).py" from
+# Smart generator: copy of "TM MapGen(1).py" from
 # https://github.com/ikmMaierBTUCS/Terra-Mystica-Map-Generator, branch "3"
 # (commit 202b2f5e278ca1e125b5cbc67ce05a0a880cbffd), lines 1-602.
-# Changes: IPython/matplotlib imports removed (only needed for display/plotting),
-# the example/main loop at the end of the file removed.
-import math
+# Changes: display/plotting code (needed IPython/matplotlib), unused functions and variables,
+# commented-out debug code and the example/main loop at the end of the file removed.
+# The map generation itself is unchanged.
 import random
 import numpy as np
 
@@ -74,22 +74,15 @@ class HexagonalMap:
             if self.map[hexf] == color:
                 stock += self.value_of_hex(hexf)
         return stock
-        #return list(self.map.values()).count(color)
         
     def work_distance(self, hexf, color):
         # measure of work required to get from hexf to the next hex of colour color
         maximal_work = 168
         if self.stock(color) == 0: # check if any hexes of same color exist yet
-            #print('no '+color+' yet')
             return maximal_work
         for direction in range(6): # check if color is adjacent
             if not self.out_of_bounds(self.next_hex(hexf,direction)) and self.map[self.next_hex(hexf,direction)] == color: 
-                #print(color+' is adjacent')
                 return 0
-        '''for direction in range(6): # check if color is bridgable
-            if self.map[self.next_hex(hexf,direction)] == 'riv' and self.map[self.next_hex(hexf,direction + 1)] == 'riv' and  self.map[self.next_hex(next_hex(hexf,direction),direction + 1)] == color: 
-                #print(color+' is bridgable')
-                return 5'''
         work = maximal_work
         for path_length in range(2,5):
             if work < 42*path_length:
@@ -101,7 +94,6 @@ class HexagonalMap:
                     for further_step in range(1, path_length):
                         path[further_step] = ((further_steers // (3**(further_step - 1)) % 3) - 1 + path[further_step - 1]) % 6
                     # each possible path set up
-                    #print('path :'+str(path))
                     transit_colors = []
                     path_legal = True
                     hex_in_path = hexf
@@ -116,11 +108,9 @@ class HexagonalMap:
                                 transit_colors += ['~~~']
                             else:
                                 transit_colors += [transcol]
-                    #print('transit colors: '+str(transit_colors))
                     if path_legal and transit_colors[-1] == color:
                         path_work = path_cost(transit_colors)
                         if path_work < work:
-                            #print(str([dir_str(dire) for dire in path]) + ' is shorter at '+str(path_work))
                             work = path_work
         return work
     
@@ -175,17 +165,12 @@ class HexagonalMap:
         return saldo
                             
     def share_score(self, distance, color):
-        #print(color,distance,self.contingent(color))
         share_score = round(distance**1.5 * self.contingent(color)**0.5 * max([1,6 - self.river_access_saldo(color)])**0.5 * max([0.4,4 - self.luck[color_index(color)]]) * 10)
         return share_score
     
     def create_map(self):
-        #self.display_map()
         
         # randomize start field
-        #start_y = random.randint(2,self.height - 3)
-        #start_x = random.randint(2,self.width - ((start_y + self.form) % 2) - 3)
-        #current_hex = (start_x,start_y)
         current_hex = self.start
         if self.map[current_hex] != ' ~ ':        
             dice = random.randint(0,6)
@@ -196,28 +181,19 @@ class HexagonalMap:
                     luck[color] += self.value_of_hex(current_hex)
                     break
             self.luck = np.array(luck, dtype=np.float64)
-            #for col in range(len(luck)):
-                #print(self.colors[col] + ': ' + str(luck[col]))
-            #print()
             
         else:
             self.map[current_hex] = '~~~'
-            #luck = np.array([0]*7, dtype=np.float64)
-        #print(luck)
-        #self.display_map()
         
         # randomize first step
         current_direction = random.randint(0,5)
         current_hex = self.next_hex(current_hex,current_direction)
-        #print(current_direction, current_hex)
-        #print(self.value_of_hex(current_hex))
         if self.out_of_bounds(current_hex):
             pass
         elif self.map[current_hex] == ' ~ ':
             self.map[current_hex] = '~~~'
         else:
             distances = {} 
-            share_scores = []
             accumulated_scores = []
             for color in ['red','yel','bro','bla','blu','grn','gry']:
                 distances[color] = self.work_distance(current_hex,color)
@@ -226,8 +202,6 @@ class HexagonalMap:
                     accumulated_scores += [score]
                 else:
                     accumulated_scores += [accumulated_scores[-1] + score]
-                share_scores += [score]
-                #print(color, score)
             randint = random.randint(0,accumulated_scores[-1] - 1)
             for acsc in range(len(accumulated_scores)):
                 if randint < accumulated_scores[acsc]:
@@ -238,33 +212,21 @@ class HexagonalMap:
             for color in range(len(luck_change)):
                 if luck_change[color] == dice:
                     luck_change[color] += self.value_of_hex(current_hex)
-                    #print(sum(luck_change))
                     break
             self.luck += np.array(luck_change, dtype=np.float64)
-            #for col in range(len(luck)):
-                #print(self.colors[col] + ': ' + str(luck[col]))
-            #print()
-        #self.display_map()
         current_direction = (current_direction + 2) % 6
-        #print(current_hex, current_direction)
         
         # further steps
         while '???' in self.map.values() or ' ~ ' in self.map.values():
-            #plot_map()
             while not self.out_of_bounds(self.next_hex(current_hex,current_direction)) and not self.map[self.next_hex(current_hex,current_direction)] in ['???',' ~ ']:
-                #print('redirection, because current direction points at neither ??? nor  ~  nor out of map')
                 current_direction = (current_direction - 1) % 6
-                #print(current_hex, current_direction)
             current_hex = self.next_hex(current_hex,current_direction)
-            #print(dir_str(current_direction) + ' to ' +str(current_hex))
-            #print(self.value_of_hex(current_hex))
             if self.out_of_bounds(current_hex):
                 pass
             elif self.map[current_hex] == ' ~ ':
                 self.map[current_hex] = '~~~'
             else:
-                distances = {} 
-                share_scores = []
+                distances = {}
                 accumulated_scores = []
                 for color in ['red','yel','bro','bla','blu','grn','gry']:
                     distances[color] = self.work_distance(current_hex,color)
@@ -273,8 +235,6 @@ class HexagonalMap:
                         accumulated_scores += [score]
                     else:
                         accumulated_scores += [accumulated_scores[-1] + score]
-                    share_scores += [score]
-                    #print(color, score)
                 randint = random.randint(0,accumulated_scores[-1] - 1)
                 for acsc in range(len(accumulated_scores)):
                     if randint < accumulated_scores[acsc]:
@@ -282,30 +242,13 @@ class HexagonalMap:
                         break
                 self.map[current_hex] = self.colors[dice]
                 luck_change = [-(distances[color]**1.5) * self.value_of_hex(current_hex) / sum([dis**1.5 for dis in distances.values()]) for color in ['red','yel','bro','bla','blu','grn','gry']]
-                #print(dice)
                 for color in range(len(luck_change)):
                     if color == dice:
-                        #print(self.colors[color] + ' won')
                         luck_change[color] += self.value_of_hex(current_hex)
-                        #print(sum(luck_change))
                         break
                 self.luck += np.array(luck_change, dtype=np.float64)
-                #for col in range(len(luck)):
-                    #print(self.colors[col] + ': ' + str(luck[col]))
-                #print()
-                #print(sum(luck))
-                #self.display_map()
-            #for color in self.colors[:7]:
-                #print(color + ': ' + str(self.contingent(color)))
             current_direction = (current_direction + 1) % 6
         
-        #print('Contingents:')
-        #for color in self.colors[:7]:
-        #    print(color + ': ' + str(round(self.contingent(color),2)))
-        #print('River access:')
-        #for color in self.colors[:7]:
-        #    print(color + ': ' + str(self.river_access_score(color)))
-        #print('Luck:')
         luckstr = 'Luck: '
         for col in range(len(self.luck)):
             luckstr += self.colors[col] + ': ' + str(round(self.luck[col],2)) + '; '
@@ -325,14 +268,11 @@ class HexagonalMap:
     def number_test(self):
         nolh = self.number_of_landhexes()
         if nolh % 7 == 0:
-            av = nolh // 7
             totaldelta = 0
             for color in self.colors[:7]:
                 delta = abs(self.absolute_stock(color) - (nolh / 7))
-                #print(color,delta)
                 totaldelta += delta
             if totaldelta > 3:
-                #print(totaldelta)
                 return False
             else:
                 return True
@@ -340,7 +280,6 @@ class HexagonalMap:
             for color in self.colors[:7]:
                 delta = abs(self.absolute_stock(color) - (nolh / 7))
                 if delta > 1:
-                    #print(color,delta)
                     return False
             return True
         
@@ -348,7 +287,6 @@ class HexagonalMap:
         for color in self.colors[:7]:
             saldo = self.river_access_saldo(color)
             if saldo > 2:
-                #print(color,saldo)
                 return False
         return True
     
@@ -356,32 +294,9 @@ class HexagonalMap:
         for color in range(7):
             luck = self.luck[color]
             if luck > 1.5:
-                #print(self.colors[color],luck)
                 return False
         return True
-        
-        
-    def display_map(self):
-        for row in range(self.height):
-            if (row + self.form) % 2 == 1:
-                rowstr = '  '
-            else:
-                rowstr = ''
-            for col in range(self.width - ((row + self.form) % 2)):
-                rowstr += self.map[(col,row)] + ' '
-            print(rowstr)
-        print('\n')
-        
-    def display_final_map_colored(self):
-        for row in range(self.height):
-            if (row + self.form) % 2 == 1:
-                rowstr = '---'
-            else:
-                rowstr = ''
-            for col in range(self.width - ((row + self.form) % 2)):
-                rowstr += transform_string_to_box(self.map[(col,row)])
-            display(HTML(rowstr))
-            
+
     def bga_format(self):
         bga_format = ''
         rows = []
@@ -392,21 +307,6 @@ class HexagonalMap:
         bga_format = '\n'.join(rows)
         return bga_format
     
-    def river_access_map(self):
-        bga_format = ''
-        rows = []
-        for row in range(self.height):
-            if (row + self.form) % 2 == 0:
-                rowstr = ''
-            else:
-                rowstr = ' '
-            rowstr = rowstr + ','.join([str(self.river_access((col,row))) for col in range(self.width - ((row + self.form) % 2))])
-            rows += [rowstr]
-        for row in rows:
-            print(row)
-        bga_format = '\n'.join(rows)
-        #return bga_format
-
     def next_hex(self,hexf,direction):
         if direction == 0:
             if (hexf[1] + self.form) % 2 == 0:
@@ -432,37 +332,11 @@ class HexagonalMap:
                 return (hexf[0] - 1,hexf[1] + 1)
             else:
                 return (hexf[0],hexf[1] + 1)
-    def painter(self,ax):
-        plot_colors ={
-                    'red': 'red',
-                    'yel': 'yellow',
-                    'bro': '#835C3B',
-                    'bla': 'black',
-                    'blu': 'blue',
-                    'grn': 'green',
-                    'gry': '#808080',
-                    '~~~': '#BFEFFF',
-                    ' ~ ': '#BFEFFF',
-                    '???': 'orange'
-                    }
-        hexes = self.map
-        for key in hexes:
-            hex_x = key[1]
-            hex_y = key[0]
-            align_hex = 0.5 if (hex_x + self.form) % 2 ==1 else 1
-            alphaval = 0.2 if hexes[key] == '~~~' else 0.7
-            hex_col = plot_colors[hexes[key]]
-            hexagon = RegularPolygon((hex_y - align_hex, -hex_x), numVertices=6, radius=np.sqrt(1 / 3),
-                                    alpha=alphaval, fill=True, color=hex_col)
-            ax.add_patch(hexagon)
-    
 def path_cost(transit_colors):
     destination_color = transit_colors[-1]
     if ['~~~','~~~','~~~','~~~'] in [transit_colors[i:i + 4] for i in range(len(transit_colors) - 3)]:
         if destination_color == 'blu':
             path_work = 42 * 6
-        #elif destination_color == 'yel':
-        #    path_work = 378 - 4 * 21
         elif destination_color == 'gry':
             path_work = 378 - 4 * 42
         else:
@@ -470,8 +344,6 @@ def path_cost(transit_colors):
     elif ['~~~','~~~','~~~'] in [transit_colors[i:i + 3] for i in range(len(transit_colors) - 2)]:
         if destination_color == 'blu':
             path_work = 42 * 4
-        #elif destination_color == 'yel':
-        #    path_work = 42 * 35/6 - 3 * 21
         elif destination_color == 'gry':
             path_work = 42 * 35/6 - 3 * 42
         else:
@@ -479,8 +351,6 @@ def path_cost(transit_colors):
     elif ['~~~','~~~'] in [transit_colors[i:i + 2] for i in range(len(transit_colors) - 1)]:
         if destination_color == 'blu':
             path_work = 42 * 10/6
-        #elif destination_color == 'yel':
-        #    path_work = 42 * 22/6 - 2 * 21
         elif destination_color == 'gry':
             path_work = 42 * 22/6 - 2 * 42
         else:
@@ -488,8 +358,6 @@ def path_cost(transit_colors):
     elif ['~~~'] in [transit_colors[i:i + 1] for i in range(len(transit_colors))]:
         if destination_color == 'blu':
             path_work = 42 * 2/6
-        #elif destination_color == 'yel':
-        #    path_work = 42 * 7/6 - 1 * 21
         elif destination_color == 'gry':
             path_work = 42 * 9/6 - 1 * 42
         else:
@@ -519,20 +387,6 @@ def path_cost(transit_colors):
             trans_work = trans_work * 8/6
         path_work += trans_work
     return path_work
-
-def dir_str(number):
-    if number == 0:
-        return 'down-right'
-    elif number == 1:
-        return 'right'
-    elif number == 2:
-        return 'up-right'
-    elif number == 3:
-        return 'up-left'
-    elif number == 4:
-        return 'left'
-    elif number == 5:
-        return 'down-left'
 
 def color_index(color):
     if color == 'red':
@@ -565,25 +419,6 @@ def color_distance(color1, color2):
         distance = min([(color_index(color1) - color_index(color2)) % 7,(color_index(color2) - color_index(color1)) % 7])
     return distance
    
-def transform_string_to_box(color_string):
-    color_mapping = {
-        'red': (' ', 'red'),
-        'yel': (' ', 'yellow'),
-        'bro': (' ', '#835C3B'),
-        'bla': (' ', 'black'),
-        'blu': (' ', 'blue'),
-        'grn': (' ', 'green'),
-        'gry': (' ', '#808080'),
-        '~~~': (' ', '#BFEFFF')
-    }
-
-    if color_string in color_mapping:
-        display_text, color = color_mapping[color_string]
-        box_html = f'<div style="background-color: {color}; width: 30px; height: 25px; text-align: center; display: inline-block; margin-bottom: -20px;">{display_text[:4]}</div>'
-        return box_html
-    else:
-        return color_string 
-
 def bga_symbol(color):
     if color == 'red':
         return 'R'

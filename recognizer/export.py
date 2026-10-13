@@ -1,6 +1,6 @@
-"""Write a trained GCN as a standalone, numpy-only script (same usage as map_is_smart.py).
+"""Write a trained GCN (recognizer/gcn.py) as a standalone, numpy-only script (same usage as map_is_smart.py).
 
-    python -m recognizer.export runs/mining_orig_w16_s0/best.pt map_is_smart.py --info "..."
+    python -m recognizer.export model.pt map_is_smart.py --info "..."     (model.pt: {'state_dict': ...})
 """
 import argparse
 import json
@@ -13,14 +13,13 @@ PLACEHOLDER = 'WEIGHTS = None  # filled in by recognizer/export.py'
 
 
 def weights_from_state(state, info=''):
-    """GCN state_dict -> plain nested lists (graph layers, dense layers, output)."""
+    """State dict of recognizer.gcn.GCN -> plain nested lists (graph layers, dense layers, output)."""
     to = lambda t: t.detach().cpu().numpy().round(7).tolist()
-    depth = len([k for k in state if k.startswith('self_lin.') and k.endswith('.weight')])
-    graph = [{'self_w': to(state[f'self_lin.{i}.weight']), 'self_b': to(state[f'self_lin.{i}.bias']),
-              'nb_w': to(state[f'nb_lin.{i}.weight'])} for i in range(depth)]
-    linear = sorted({int(k.split('.')[2]) for k in state if k.startswith('head.net.') and k.endswith('.weight')})
-    dense = [{'w': to(state[f'head.net.{i}.weight']), 'b': to(state[f'head.net.{i}.bias'])} for i in linear[:-1]]
-    out = {'w': to(state[f'head.net.{linear[-1]}.weight'])[0], 'b': to(state[f'head.net.{linear[-1]}.bias'])}
+    count = lambda prefix: len([k for k in state if k.startswith(prefix) and k.endswith('.weight')])
+    graph = [{'self_w': to(state[f'graph_self.{i}.weight']), 'self_b': to(state[f'graph_self.{i}.bias']),
+              'nb_w': to(state[f'graph_nb.{i}.weight'])} for i in range(count('graph_self.'))]
+    dense = [{'w': to(state[f'dense.{i}.weight']), 'b': to(state[f'dense.{i}.bias'])} for i in range(count('dense.'))]
+    out = {'w': to(state['out.weight'])[0], 'b': to(state['out.bias'])}
     return {'info': info, 'graph': graph, 'dense': dense, 'out': out}
 
 
