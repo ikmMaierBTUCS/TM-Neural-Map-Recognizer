@@ -6,7 +6,7 @@
 # No work distances, no river access saldo, no luck.
 import random
 
-from tmgen.smart import HexagonalMap
+from tm_mapgen import HexagonalMap
 
 LAND_COLORS = ['red', 'yel', 'bro', 'bla', 'blu', 'grn', 'gry']
 

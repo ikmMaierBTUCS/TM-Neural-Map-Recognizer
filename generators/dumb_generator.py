@@ -2,7 +2,7 @@
 
 A generator file only has to provide  generate_map(seed) -> str  returning a map in the format of
 map_is_smart.py (one row per line, e.g. "U,S,G,B,..."). Change LAYOUT to use another river layout
-(see tmgen/layouts.py: original, fjords, fi, loon).
+(see tm_mapgen.LAYOUTS, e.g. base, fjords, fire-and-ice, loon-lakes).
 """
 import contextlib
 import io
@@ -12,9 +12,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tmgen.fast import FastDumbHexagonalMap  # noqa: E402
-from tmgen.layouts import LAYOUTS  # noqa: E402
+from tm_mapgen import LAYOUTS  # noqa: E402
 
-LAYOUT = 'original'
+LAYOUT = 'base'
 
 
 def generate_map(seed):

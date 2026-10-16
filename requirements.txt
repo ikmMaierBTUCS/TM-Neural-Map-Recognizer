@@ -3,3 +3,5 @@ numpy>=1.21
 # training (train.py); the CPU build is enough:
 #   pip install torch --index-url https://download.pytorch.org/whl/cpu
 torch>=2.0
+# generating maps (generators/, train.py): the Terra Mystica Map Generator as a package
+tm-mapgen @ git+https://github.com/ikmMaierBTUCS/Terra-Mystica-Map-Generator@v4.1

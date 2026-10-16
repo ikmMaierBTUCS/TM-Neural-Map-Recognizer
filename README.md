@@ -1,7 +1,7 @@
 # TM Neural Map Recognizer
 
 A neural network that decides whether a Terra Mystica map was created by the
-[Terra Mystica Map Generator](https://github.com/ikmMaierBTUCS/Terra-Mystica-Map-Generator) (branch `3`),
+[Terra Mystica Map Generator](https://github.com/ikmMaierBTUCS/Terra-Mystica-Map-Generator) ([version 4](https://github.com/ikmMaierBTUCS/Terra-Mystica-Map-Generator/tree/v4.0)),
 which builds balanced maps, or by a deliberately "dumb" generator based on very simple rules.
 
 ## Architecture
@@ -64,9 +64,8 @@ more, not a probability of anything.
 
 ## Generators
 
-**Smart generator** (`tmgen/smart.py`): the original code of branch `3`. <!--
-unchanged except for removed
-display/plotting code. `tmgen/fast.py` is a 5× faster drop-in version (cached river access, tracked colour counts);
+**Smart generator**: the [Terra Mystica Map Generator](https://github.com/ikmMaierBTUCS/Terra-Mystica-Map-Generator), installed as the package
+`tm-mapgen` (see `requirements.txt`). <!--`tmgen/fast.py` is a 5× faster drop-in version (cached river access, tracked colour counts);
 for the same random seed it produces exactly the same maps.-->
 
 **Dumb generator** (`tmgen/dumb.py`) a reduced version of the smart generator that only observes that 1) two hexes of the same colour are never adjacent and
@@ -126,6 +125,10 @@ A held-out test set of 2,000 + 2,000 maps is used only once, for the final model
 The trained model distinguishes maps of the smart generator from maps of the dumb generator with an accuracy of
 **98.1 %** (held-out test set of 2,000 + 2,000 maps, 95 % confidence interval 97.7–98.6 %).
 The FP rate (dumb map judged smart) is **1.9 %**, the FN rate (smart map judged dumb) **1.85 %**.
+
+The model was trained on maps of version 4 of the map generator. Version 4.1 fixes the luck bookkeeping of the first
+hex after the start field, which changes most maps slightly. The model recognises them just as well: of 2,000 smart
+maps generated with the test seeds, 98.6 % (version 4.1) and 98.3 % (version 4) are judged smart.
 
 <!--| | 16 channels | 8 channels |
 |---|---|---|
@@ -199,7 +202,7 @@ All numbers are validation accuracy on the Fjords layout (mean over 3 seeds unle
 map_is_smart.py   check a map with the trained model (numpy only)
 train.py          train your own model from two generator files -> model.py
 generators/       smart_generator.py, dumb_generator.py (generator files for train.py)
-tmgen/            generators: smart.py (original), dumb.py, fast.py (fast drop-in), layouts.py (river layouts)
+tmgen/            dumb.py (dumb generator), fast.py (fast drop-in versions of both generators)
 recognizer/       model_template.py (the code of map_is_smart.py / model.py), export.py (writes model.py),
                   pipeline.py (training and hard example mining), genload.py (loads generator files), gcn.py (GCN)
 ```
@@ -221,7 +224,7 @@ to Board Game Arena (R red, Y yellow, U brown, K black, B blue, G green, S gray,
 
 ### Train your own model with your own map generator
 
-Needs numpy and torch (`pip install -r requirements.txt`).
+Needs numpy, torch and the map generator package tm-mapgen (`pip install -r requirements.txt`).
 
 A Python random map generator smart_generator.py is needed. A dumb version for comparison is also needed but you may just use generators/dumb_generator.py.
 
